@@ -1,0 +1,30 @@
+#!/bin/bash
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+# Optimize subnets
+OPTIMIZER="iprange -v --union --min-prefix 8"
+
+# Download IP list
+curl -vv \
+    --location \
+    --compressed \
+    --output "ip.csv" \
+    "https://reestr.rublacklist.net/api/v2/ips/csv"
+
+# Parse and trim all IPs into IPv4 list
+cat ip.csv | tr -d ',' | grep -v ":" > ip4-all.csv
+
+# IP subnets
+cat ip4-all.csv | grep "/" > ip4-all-subnets.csv
+
+# IP hosts (convert every individual IP into /24 subnet)
+cat ip4-all.csv | grep -v "/" | awk -F. '{print $1"."$2"."$3".0/24"}' > ip4-all-hosts.csv
+
+# Optimize all subnets
+cat ip4-all-subnets.csv ip4-all-hosts.csv | $OPTIMIZER > ip4-optimized.csv
+
+# Delete temporary files
+rm ip.csv ip4-all.csv ip4-all-subnets.csv ip4-all-hosts.csv
